@@ -5,12 +5,10 @@
 #include <mutex>
 #include <queue>
 #include <string>
-#include <atomic>
-#include <assert.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <sys/time.h>
-#include <condition_variable>
 
 
 /******************************** definition ********************************/
@@ -30,7 +28,7 @@ public:
               int split_lines = 5000000, int queue_capacity = 0);
 
     // 写入日志文件
-    void write_log(LogType type, const char* format, ...);
+    void write_log(LogType type, const char* file, int32_t line, const char* format, ...);
 
     // 刷新缓冲区
     void flush(void);
@@ -57,15 +55,15 @@ private:
 };
 
 #define LOG_DEBUG(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::DEBUG, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!m_close_log) { Log::get_instance()->write_log(LogType::DEBUG, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_INFO(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::INFO, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!m_close_log) { Log::get_instance()->write_log(LogType::INFO, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_WARN(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::WARN, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!m_close_log) { Log::get_instance()->write_log(LogType::WARN, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_ERROR(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::ERROR, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!m_close_log) { Log::get_instance()->write_log(LogType::ERROR, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_FATAL(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::FATAL, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!m_close_log) { Log::get_instance()->write_log(LogType::FATAL, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 
 
 /******************************** implementation ********************************/
@@ -150,7 +148,7 @@ bool Log::init(const char* file_name, bool close_log, int log_buf_size, int spli
     return true;
 }
 
-void Log::write_log(LogType type, const char* format, ...) {
+void Log::write_log(LogType type, const char* file, int32_t line, const char* format, ...) {
     struct timeval now{0, 0};
     gettimeofday(&now, NULL); // 获取当前系统时间
     time_t t = now.tv_sec;
@@ -210,10 +208,10 @@ void Log::write_log(LogType type, const char* format, ...) {
 
     m_mutex.lock();
     // 写入具体时间
-    int n = snprintf(m_buf, 48, "%d-%02d-%02d %02d:%02d:%02d.%06ld %s", 
+    int n = snprintf(m_buf, 128, "%d-%02d-%02d %02d:%02d:%02d.%06ld %s:%d %s", 
             my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday, 
-            my_tm.tm_hour, my_tm.tm_min, my_tm.tm_sec, now.tv_sec, typeStr);
-    // 将一个可变参数（alst）格式化（format）输出到一个限定最大长度（m_log_buf_size - n - 1）的字符串缓冲区（m_buf）中
+            my_tm.tm_hour, my_tm.tm_min, my_tm.tm_sec, now.tv_sec, file, line, typeStr);
+    // 将一个可变参数（valst）格式化（format）输出到一个限定最大长度（m_log_buf_size - n - 1）的字符串缓冲区（m_buf）中
     int m = vsnprintf(m_buf + n, m_log_buf_size - n - 1, format, valst);
 
     m_buf[m + n] = '\n';
