@@ -10,7 +10,7 @@
 #include <stdarg.h>
 #include <sys/time.h>
 
-
+#define DEFAULT_PATH "LogFile"
 /******************************** definition ********************************/
 
 enum class LogType : char { DEBUG, INFO, WARN, ERROR, FATAL };
@@ -24,7 +24,7 @@ public:
     static void* flush_log_thread(void* args);
 
     // 可选择的参数有日志文件名，日志缓冲区大小，最大日志行数，日志队列容量
-    bool init(const char* file_name, bool close_log, int log_buf_size = 8192, 
+    bool init(const char* file_name, bool close_log = false, int log_buf_size = 8192, 
               int split_lines = 5000000, int queue_capacity = 0);
 
     // 写入日志文件
@@ -32,6 +32,11 @@ public:
 
     // 刷新缓冲区
     void flush(void);
+
+    bool get_close_log();
+    void set_close_log(const bool& close_log);
+    void set_dir_name(const char* dirName);
+
 
 private:
     Log();
@@ -55,15 +60,15 @@ private:
 };
 
 #define LOG_DEBUG(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::DEBUG, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!Log::get_instance()->get_close_log()) { Log::get_instance()->write_log(LogType::DEBUG, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_INFO(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::INFO, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!Log::get_instance()->get_close_log()) { Log::get_instance()->write_log(LogType::INFO, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_WARN(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::WARN, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!Log::get_instance()->get_close_log()) { Log::get_instance()->write_log(LogType::WARN, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_ERROR(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::ERROR, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!Log::get_instance()->get_close_log()) { Log::get_instance()->write_log(LogType::ERROR, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 #define LOG_FATAL(format, ...) \
-    if (!m_close_log) { Log::get_instance()->write_log(LogType::FATAL, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
+    if (!Log::get_instance()->get_close_log()) { Log::get_instance()->write_log(LogType::FATAL, __FILE__, __LINE__, format, ##__VA_ARGS__); Log::get_instance()->flush(); }
 
 
 /******************************** implementation ********************************/
@@ -71,6 +76,7 @@ private:
 Log::Log() {
     m_count = 1;
     m_is_async = false;
+    init(DEFAULT_PATH);
 }
 
 Log::~Log() {
@@ -95,6 +101,18 @@ Log* Log::get_instance() {
 void* Log::flush_log_thread(void* args) {
     Log::get_instance()->async_write_log();
     return NULL;
+}
+
+bool Log::get_close_log() {
+    return this->m_close_log;
+}
+
+void Log::set_close_log(const bool& close_log) {
+    this->m_close_log = close_log;
+}
+
+void Log::set_dir_name(const char* dirName) {
+    init(dirName);
 }
 
 bool Log::init(const char* file_name, bool close_log, int log_buf_size, int split_lines, int queue_capacity) {

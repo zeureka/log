@@ -4,8 +4,6 @@
 #include <unistd.h>
 using namespace std;
 
-bool m_close_log = false;
-
 void* callback(void* args) {
     int* num = (int*)args;
 
@@ -37,7 +35,7 @@ void* callback(void* args) {
 
 int main() {
     Log* log = Log::get_instance();
-    log->init("async_write", m_close_log, 8192, 500, 50);
+    log->init("async_write", false, 8192, 500, 50);
     pthread_t threads[5];
     for (int i = 0; i < 5; ++i) {
         int *num = new int(i);
